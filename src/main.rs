@@ -1,6 +1,6 @@
 use std::net::{Shutdown, TcpListener};
-use std::sync::{Arc, atomic, Mutex};
-use std::sync::atomic::Ordering;
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::thread::{spawn};
 use std::time::SystemTime;
 use env_logger::Env;
@@ -18,6 +18,7 @@ mod client_packets;
 mod chat;
 
 fn main() {
+    let start_time = SystemTime::now();
     let config = get_config();
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
     
@@ -25,9 +26,11 @@ fn main() {
     
     let addr = format!("0.0.0.0:{}", config.settings.listen);
     let listener = TcpListener::bind(addr.clone()).unwrap();
-    let connections = Arc::new(atomic::AtomicU32::new(0));
+    let connections = Arc::new(AtomicU32::new(0));
     
     info!("listening on {addr}");
+    let startup_duration = start_time.elapsed().unwrap().as_micros();
+    debug!("server is ready in {:.2} ms", (startup_duration as f32) / 1000.0);
     
     loop {
         let (stream, addr) = listener.accept().unwrap();
