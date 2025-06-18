@@ -28,8 +28,8 @@ pub enum MinecraftProtocolState {
     NONE
 }
 
-impl From<usize> for MinecraftProtocolState {
-    fn from(val: usize) -> MinecraftProtocolState {
+impl From<u16> for MinecraftProtocolState {
+    fn from(val: u16) -> MinecraftProtocolState {
         match val {
             0 => MinecraftProtocolState::HANDSHAKING,
             1 => MinecraftProtocolState::STATUS,
@@ -40,14 +40,14 @@ impl From<usize> for MinecraftProtocolState {
     }
 }
 
-impl Into<usize> for MinecraftProtocolState {
-    fn into(self) -> usize {
+impl Into<u16> for MinecraftProtocolState {
+    fn into(self) -> u16 {
         match self {
             MinecraftProtocolState::HANDSHAKING => 0,
             MinecraftProtocolState::STATUS => 1,
             MinecraftProtocolState::LOGIN => 2,
             MinecraftProtocolState::PLAY => 3,
-            MinecraftProtocolState::NONE => usize::MAX
+            MinecraftProtocolState::NONE => u16::MAX
         }
     }
 }

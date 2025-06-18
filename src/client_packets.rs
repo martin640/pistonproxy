@@ -22,7 +22,7 @@ impl TryFrom<&mut MinecraftPacket> for HandshakePacket {
             protocol_version: f1 as u32,
             server_address: f2,
             server_port: f3,
-            next_state: MinecraftProtocolState::from(f4 as usize)
+            next_state: MinecraftProtocolState::from(f4 as u16)
         })
     }
 }
@@ -33,7 +33,7 @@ impl From<HandshakePacket> for MinecraftPacket {
         packet.write_int(value.protocol_version as i32);
         packet.write_string(&value.server_address);
         packet.write_u16(value.server_port);
-        let next_state: usize = value.next_state.into();
+        let next_state: u16 = value.next_state.into();
         packet.write_int(next_state as i32);
         
         packet
