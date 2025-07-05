@@ -6,6 +6,7 @@ use serde::Deserialize;
 
 pub const VERSION_PROXY_NAME: &'static str = "0.0.1-unstable";
 pub const VERSION_PROTOCOL_NAME: &'static str = "1.20.4";
+pub const VERSION_PROTOCOL_CODE: i32 = 765;
 pub const BUFFER_SIZE: usize = 4096;
 
 #[derive(PartialEq, PartialOrd, Clone, Debug, Deserialize)]

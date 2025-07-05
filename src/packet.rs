@@ -1,3 +1,4 @@
+use std::io::Write;
 use crate::chat::ChatData;
 use crate::reader::{CursoredVarDataReader, VarDataReader};
 use crate::writer::{CursoredVarDataWriter, VarDataWriter};
@@ -15,11 +16,12 @@ pub struct MinecraftPacket {
 #[derive(Debug)]
 pub enum PacketParseError {
     MalformedField(String),
+    PacketFormatError(String),
     LengthMismatch,
     EmptyBuffer
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum MinecraftProtocolState {
     HANDSHAKING,
     STATUS,
@@ -53,10 +55,10 @@ impl Into<u16> for MinecraftProtocolState {
 }
 
 impl MinecraftPacket {
-    pub fn empty() -> MinecraftPacket {
+    pub fn new(id: i32) -> MinecraftPacket {
         MinecraftPacket {
             len: 0,
-            id: 0,
+            id,
             data: Vec::new(),
             cursor: 0
         }
@@ -77,38 +79,48 @@ impl MinecraftPacket {
         }
         
         let mut offset = 0;
-        if let Some((packet_length, len)) = buf.read_int(0) {
-            offset = offset + len;
-            if let Some((packet_id, len)) = buf.read_int(len) {
-                offset = offset + len;
-                let data_length = offset + packet_length as usize;
+        if let Some((packet_length, length_len)) = buf.read_int(0) {
+            offset += length_len;
+            if let Some((packet_id, id_len)) = buf.read_int(offset) {
+                offset += id_len;
                 
-                assert_ne!(data_length, 0);
+                let total_length = length_len + (packet_length as usize);
+                let data_length = (packet_length as usize) - id_len;
                 
-                if buf.len() >= data_length {
-                    let data = buf[offset..data_length].to_vec();
+                if buf.len() >= total_length {
+                    let data = buf[offset..(offset + data_length)].to_vec();
                     Ok((MinecraftPacket {
-                        len: packet_length,
+                        len: data_length as i32,
                         id: packet_id,
                         cursor: 0,
                         data
-                    }, data_length))
+                    }, total_length))
                 } else {
-                    Err(PacketParseError::LengthMismatch)
+                    Err(PacketParseError::PacketFormatError(format!("expected packet of total size {} but buffer size is {}", total_length, buf.len())))
                 }
             } else {
-                Err(PacketParseError::LengthMismatch)
+                Err(PacketParseError::PacketFormatError(String::from("unable to read packet id")))
             }
         } else {
-            Err(PacketParseError::LengthMismatch)
+            Err(PacketParseError::PacketFormatError(String::from("unable to read packet length")))
         }
     }
     
-    pub fn create_disconnect_packet(msg: &String) -> MinecraftPacket {
-        let mut packet = MinecraftPacket::empty();
-        let json = ChatData::new(msg.clone()).to_string();
+    pub fn create_disconnect_packet(msg: ChatData) -> MinecraftPacket {
+        let mut packet = MinecraftPacket::new(0x00);
+        let json = msg.to_string();
         packet.write_string(&json);
         packet
+    }
+    
+    pub fn encode(&self) -> Vec<u8> {
+        let mut data: Vec<u8> = Vec::new();
+        let packet_id_len = data.write_int(self.id, 0);
+        let mut offset = data.write_int(self.len + (packet_id_len as i32), 0);
+        offset += data.write_int(self.id, offset);
+        data.resize(offset + (self.len as usize), 0);
+        data[offset..(offset + (self.len as usize))].copy_from_slice(&self.data[..]);
+        data
     }
 }
 
@@ -185,5 +197,24 @@ impl CursoredVarDataWriter for MinecraftPacket {
         let len = self.data.write_string(val, self.cursor);
         self.cursor += len;
         self.len = usize::max(self.len as usize, self.cursor) as i32;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn encode_and_decode_packet() {
+        let msg = String::from("Hello world!");
+        let original_packet = MinecraftPacket::create_disconnect_packet(ChatData::new(msg.clone()));
+        let bytes = original_packet.encode();
+        
+        let res = MinecraftPacket::parse_packet(bytes.to_vec());
+        let (mut parsed_packet, _) = res.unwrap();
+        assert_eq!(parsed_packet.id, original_packet.id);
+        let body = parsed_packet.read_string().unwrap();
+        let chat_data = ChatData::try_from(body).unwrap();
+        assert_eq!(chat_data.text, msg);
     }
 }

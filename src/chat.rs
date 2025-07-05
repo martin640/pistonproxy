@@ -1,19 +1,19 @@
 use std::fmt::Display;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ChatData {
-    text: String,
-    bold: bool,
-    italic: bool,
-    underlined: bool,
-    strikethrough: bool,
-    obfuscated: bool,
+    pub text: String,
+    pub bold: bool,
+    pub italic: bool,
+    pub underlined: bool,
+    pub strikethrough: bool,
+    pub obfuscated: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    color: Option<String>,
+    pub color: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    extra: Option<Vec<ChatData>>
+    pub extra: Option<Vec<ChatData>>
 }
 
 impl ChatData {
@@ -29,10 +29,31 @@ impl ChatData {
             extra: None
         }
     }
+    
+    pub fn new_colored(text: String, color: String) -> ChatData {
+        ChatData {
+            text,
+            bold: false,
+            italic: false,
+            underlined: false,
+            strikethrough: false,
+            obfuscated: false,
+            color: Some(color),
+            extra: None
+        }
+    }
 }
 
 impl Display for ChatData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", json!(self).to_string())
+    }
+}
+
+impl TryFrom<String> for ChatData {
+    type Error = ();
+    
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        serde_json::from_str(&*value).map_err(|_| ())
     }
 }

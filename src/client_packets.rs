@@ -2,6 +2,7 @@ use crate::packet::{MinecraftPacket, MinecraftProtocolState, PacketParseError};
 use crate::reader::{CursoredVarDataReader};
 use crate::writer::CursoredVarDataWriter;
 
+#[derive(Clone)]
 pub struct HandshakePacket {
     pub protocol_version: u32,
     pub server_address: String,
@@ -29,7 +30,7 @@ impl TryFrom<&mut MinecraftPacket> for HandshakePacket {
 
 impl From<HandshakePacket> for MinecraftPacket {
     fn from(value: HandshakePacket) -> Self {
-        let mut packet = MinecraftPacket::empty();
+        let mut packet = MinecraftPacket::new(0x00);
         packet.write_int(value.protocol_version as i32);
         packet.write_string(&value.server_address);
         packet.write_u16(value.server_port);
@@ -37,5 +38,22 @@ impl From<HandshakePacket> for MinecraftPacket {
         packet.write_int(next_state as i32);
         
         packet
+    }
+}
+
+#[derive(Clone)]
+pub struct PingPacket {
+    pub timestamp: i64
+}
+
+impl TryFrom<&mut MinecraftPacket> for PingPacket {
+    type Error = PacketParseError;
+    
+    fn try_from(packet: &mut MinecraftPacket) -> Result<Self, Self::Error> {
+        CursoredVarDataReader::reset_cursor(packet);
+        let f1 = packet.read_long().ok_or(PacketParseError::MalformedField(String::from("timestamp")))?;
+        Ok(PingPacket {
+            timestamp: f1
+        })
     }
 }
